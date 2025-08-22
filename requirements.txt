@@ -1,0 +1,5 @@
+streamlit
+pandas
+requests
+requests-oauthlib
+anthropic>=0.30.0
