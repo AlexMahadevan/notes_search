@@ -30,13 +30,13 @@ def get_secret(name: str, default: str = "") -> str:
 # =========================================================
 # Page header
 # =========================================================
-st.set_page_config(page_title="Community Notes Finder", layout="wide")
+st.set_page_config(page_title="X claim finder", layout="wide")
 
-st.title("Community Notes Finder")
+st.title("X claim finder")
 st.caption(
-    "Step 1: Pull eligible X posts and review them immediately. "
+    "Step 1: Pull X posts users have tagged for Community Notes. "
     "Step 2: Click **Analyze & Rank** to flag **fact-checkable** items and sort by "
-    "**importance × checkability**. Built for speed and clarity."
+    "**importance × checkability**. Reach TK."
 )
 
 # =========================================================
@@ -204,4 +204,4 @@ if export_clicked:
             st.download_button("Download CSV", data=f, file_name=st.session_state.advanced["export_filename"], mime="text/csv")
 
 st.markdown("---")
-st.caption("This tool assists human judgment. Always verify with primary sources.")
+st.caption("**Important:** This tool supports human judgment. It will only augment — never replace a real fact-checker:).")
