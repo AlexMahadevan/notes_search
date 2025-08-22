@@ -1,3 +1,4 @@
+# services/llm.py
 import json
 import re
 from typing import List, Dict, Iterable
@@ -7,7 +8,8 @@ import anthropic
 # ==============================
 # Fixed model & lightweight settings
 # ==============================
-MODEL_NAME = "claude-sonnet-4-20250514"   # newsroom-fixed
+# Use a stable, publicly available model id.
+MODEL_NAME = "claude-3-5-sonnet-20240620"
 TEMPERATURE = 0.2
 
 # Smaller caps for speed
@@ -77,12 +79,21 @@ def _escape_quotes(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
 def _call_json_array(client: anthropic.Anthropic, prompt: str, max_tokens: int) -> List[Dict]:
-    resp = client.messages.create(
-        model=MODEL_NAME,
-        messages=[{"role": "user", "content": "Return ONLY valid minified JSON. No markdown, no code fences, no commentary.\n\n" + prompt}],
-        max_tokens=max_tokens,
-        temperature=TEMPERATURE,
-    )
+    """
+    Calls Anthropic and returns a JSON array (or [] on hard failure).
+    Surfaces useful error info if available.
+    """
+    try:
+        resp = client.messages.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": "Return ONLY valid minified JSON. No markdown, no code fences, no commentary.\n\n" + prompt}],
+            max_tokens=max_tokens,
+            temperature=TEMPERATURE,
+        )
+    except Exception as e:
+        # Bubble up a concise message so Streamlit shows it
+        raise RuntimeError(f"Anthropic request failed: {e!r}")
+
     text = _extract_text(resp).strip()
     try:
         data = json.loads(text)
@@ -97,6 +108,7 @@ def _call_json_array(client: anthropic.Anthropic, prompt: str, max_tokens: int) 
                 return [data]
             return data if isinstance(data, list) else []
         except Exception:
+            # Couldn’t parse; return empty so heuristics can still keep claimy posts
             return []
 
 # ==============================
@@ -143,7 +155,7 @@ Posts:
 """.strip()
 
 # ==============================
-# Public API (no “starters” functions)
+# Public API
 # ==============================
 def filter_posts_with_llm(posts: List[Dict], *, anthropic_api_key: str) -> List[Dict]:
     """
