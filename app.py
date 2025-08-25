@@ -1,5 +1,3 @@
-# app.py — ranking uses RETWEETS (not reach)
-
 import os
 import sys
 import math
@@ -254,4 +252,4 @@ else:
             )
 
 st.markdown("---")
-st.caption("This tool assists human judgment. Always verify with primary sources.")
+st.caption("**Important:** This tool supports human judgment. It will only augment — never replace a real fact-checker:).")
