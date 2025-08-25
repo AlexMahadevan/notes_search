@@ -27,10 +27,11 @@ def get_secret(name: str, default: str = "") -> str:
     return (str(val) if val is not None else "").strip()
 
 
-st.set_page_config(page_title="X posts finder", layout="wide")
+st.set_page_config(page_title="X claim finder", layout="wide")
 
-st.title("X posts finder")
+st.title("X claim finder")
 st.caption(
+    "This is a generative AI tool designed to find you relevant claims to fact-check on X. It does this by finding the latest posts X users have asked Community Notes to flag, then assessing them based on whether they are checkable and potentially viral."
     "Step 1: Fetch X posts flagged for Community Notes.  \n"
     "Step 2: Analyze to flag **fact-checkable** items and rank by "
     "**importance × checkability × retweets**."
