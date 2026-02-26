@@ -9,7 +9,7 @@ import anthropic
 # Fixed model & lightweight settings
 # ==============================
 # Use a stable, publicly available model id.
-MODEL_NAME = "claude-3-5-sonnet-20240620"
+MODEL_NAME = "claude-sonnet-4-6"
 TEMPERATURE = 0.2
 
 # Smaller caps for speed
