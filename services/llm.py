@@ -220,3 +220,57 @@ def score_posts_with_llm(posts: List[Dict], *, anthropic_api_key: str) -> List[D
             p["llm_scoring_reason"] = r.get("scoring_reason", "")
             scored.append(p)
     return scored
+
+# ==============================
+# Starter research briefs
+# ==============================
+# Research output is longer than a score, so give it more room and a smaller batch
+# (keeps the JSON reliable).
+TOKENS_RESEARCH = 1500
+RESEARCH_BATCH_SIZE = 6
+
+def _research_prompt(items: List[Dict]) -> str:
+    lines = []
+    for x in items:
+        lines.append(f'- id: {x.get("id","")}\n  text: "{_escape_quotes(_trunc(x.get("text","")))}"')
+    posts_block = "\n".join(lines)
+    return f"""
+You are a PolitiFact research editor helping a fact-checker get started on each post.
+For EACH post, produce a concise starter research brief — a launch point, not a verdict.
+
+Return ONLY a minified JSON array. One object per post with keys:
+"id": the post id (unchanged).
+"checkable_assertion": the single most important specific, verifiable factual claim in the post, restated plainly in one sentence with the rhetoric and opinion stripped out. If the post has no concrete checkable claim, use "".
+"suggested_sources": an array of 2-3 short strings naming the SPECIFIC types of sources that would verify this claim (e.g. "BLS monthly jobs report", "the bill text on congress.gov", "state election office certified results"). Tailor them to the claim — no generic "official sources".
+"search_query": one ready-to-paste web search query a fact-checker could run to start verifying the claim.
+
+Posts:
+{posts_block}
+""".strip()
+
+def research_posts_with_llm(posts: List[Dict], *, anthropic_api_key: str) -> List[Dict]:
+    """
+    Attach a starter research brief to each post:
+    checkable_assertion (str), suggested_sources (list[str]), search_query (str).
+    Mutates and returns the same post dicts; a failed batch just leaves the fields empty.
+    """
+    if not posts:
+        return []
+    client = _anthropic_client(anthropic_api_key)
+
+    out: List[Dict] = []
+    for batch in _chunks(posts, RESEARCH_BATCH_SIZE):
+        llm_items = [{"id": p.get("id",""), "text": p.get("text","")} for p in batch]
+        results = _call_json_array(client, _research_prompt(llm_items), max_tokens=TOKENS_RESEARCH)
+        rmap: Dict[str, Dict] = {str(r.get("id","")): r for r in results if isinstance(r, dict)}
+
+        for p in batch:
+            r = rmap.get(str(p.get("id","")), {})
+            p["checkable_assertion"] = (r.get("checkable_assertion", "") or "").strip()
+            sources = r.get("suggested_sources", [])
+            if isinstance(sources, str):
+                sources = [sources]
+            p["suggested_sources"] = [str(s).strip() for s in sources if str(s).strip()][:3]
+            p["search_query"] = (r.get("search_query", "") or "").strip()
+            out.append(p)
+    return out

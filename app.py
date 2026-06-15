@@ -13,8 +13,10 @@ if str(ROOT) not in sys.path:
 from services.x_api import (
     fetch_eligible_posts,
 )
-from services.llm import filter_posts_with_llm, score_posts_with_llm
+from services.llm import filter_posts_with_llm, score_posts_with_llm, research_posts_with_llm
 from utils.io import save_posts_to_csv, ensure_list
+
+RESEARCH_TOP_N = 12  # how many top-ranked claims get an AI-drafted research brief
 
 
 def get_secret(name: str, default: str = "") -> str:
@@ -143,6 +145,16 @@ def _do_analyze():
     ranked = sorted(scored, key=lambda x: x.get("_final_score", 0), reverse=True)
     ranked = _apply_high_reach_filter(ranked)
 
+    # Starter research briefs for the top-ranked claims. These dicts are the same
+    # objects as in `ranked`, so the new fields land on the ranked list too.
+    top_for_research = ranked[:RESEARCH_TOP_N]
+    if top_for_research:
+        with st.spinner("Drafting starter research briefs for top claims…"):
+            research_posts_with_llm(
+                top_for_research,
+                anthropic_api_key=get_secret("ANTHROPIC_API_KEY", ""),
+            )
+
     ss.ranked_posts = ranked
     ss.did_analyze = True
 
@@ -223,6 +235,36 @@ def _show_table(title: str, posts: List[Dict], cols: Optional[list] = None):
     )
 
 
+def _show_research_briefs(posts: List[Dict]):
+    briefs = [p for p in posts if (p.get("checkable_assertion") or p.get("search_query"))]
+    if not briefs:
+        return
+    st.subheader("📝 Starter research briefs")
+    st.caption(
+        "AI-drafted starting points for the top-ranked claims — a launch pad, not a verdict. "
+        "Always verify independently."
+    )
+    for p in briefs:
+        pid = p.get("id", "")
+        text = (p.get("text", "") or "").strip()
+        label = (text[:90] + "…") if len(text) > 90 else (text or pid)
+        with st.expander(label):
+            assertion = p.get("checkable_assertion", "")
+            if assertion:
+                st.markdown(f"**Checkable claim:** {assertion}")
+            sources = p.get("suggested_sources", []) or []
+            if sources:
+                st.markdown("**Where to verify:**")
+                for s in sources:
+                    st.markdown(f"- {s}")
+            q = p.get("search_query", "")
+            if q:
+                st.markdown("**Search to start with:**")
+                st.code(q, language=None)
+            if pid:
+                st.markdown(f"[Open post on X](https://x.com/i/status/{pid})")
+
+
 # A. Preview
 st.header("A. Preview")
 if ss.did_fetch and ss.raw_posts:
@@ -251,6 +293,7 @@ else:
                 ss.ranked_posts,
                 cols=["Tweet", "Open", "Retweets", "Importance", "Checkability", "Retweet score", "Scoring reason"],
             )
+            _show_research_briefs(ss.ranked_posts[:RESEARCH_TOP_N])
 
 st.markdown("---")
 st.caption("**Important:** This tool supports human judgment. It will only augment — never replace a real fact-checker:).")
